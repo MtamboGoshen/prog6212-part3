@@ -1,5 +1,6 @@
 ﻿using ContractMonthlyClaim.Data;
 using ContractMonthlyClaim.Models;
+using ContractMonthlyClaim.Services; // Added namespace
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -11,13 +12,15 @@ namespace ContractMonthlyClaim.Controllers
     public class HRController : Controller
     {
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly RoleManager<IdentityRole> _roleManager; // <-- ADD THIS
+        private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly IClaimService _claimService; // <-- New Service
 
-        // MODIFIED: Inject RoleManager
-        public HRController(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
+        // MODIFIED: Inject IClaimService
+        public HRController(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager, IClaimService claimService)
         {
             _userManager = userManager;
-            _roleManager = roleManager; // <-- ADD THIS
+            _roleManager = roleManager;
+            _claimService = claimService; // <-- Assign it
         }
 
         public async Task<IActionResult> Index()
@@ -26,20 +29,28 @@ namespace ContractMonthlyClaim.Controllers
             return View(users);
         }
 
-        // ========== NEW ACTION: GET Create ==========
+        // ========== NEW ACTION: Payment Report ==========
+        [HttpGet]
+        public async Task<IActionResult> Report()
+        {
+            var approvedClaims = await _claimService.GetApprovedClaims();
+            return View(approvedClaims);
+        }
+
+        // ... (Keep your existing Create (GET/POST) and Edit (GET/POST) methods exactly as they were) ...
+
         [HttpGet]
         public IActionResult Create()
         {
-            // We pass the list of roles to the view for a dropdown menu
             ViewBag.Roles = _roleManager.Roles.Select(r => r.Name).ToList();
             return View();
         }
 
-        // ========== NEW ACTION: POST Create ==========
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(CreateUserViewModel model)
         {
+            // ... (Paste your existing Create POST logic here) ...
             if (ModelState.IsValid)
             {
                 var user = new ApplicationUser
@@ -49,38 +60,30 @@ namespace ContractMonthlyClaim.Controllers
                     FirstName = model.FirstName,
                     LastName = model.LastName,
                     HourlyRate = model.HourlyRate,
-                    EmailConfirmed = true // HR creates users, so we can confirm them
+                    EmailConfirmed = true
                 };
-
                 var result = await _userManager.CreateAsync(user, model.Password);
-
                 if (result.Succeeded)
                 {
-                    // Add the user to the selected role
                     await _userManager.AddToRoleAsync(user, model.Role);
                     return RedirectToAction("Index");
                 }
-
-                // If creation failed, add errors to the model state
                 foreach (var error in result.Errors)
                 {
                     ModelState.AddModelError(string.Empty, error.Description);
                 }
             }
-
-            // If we got this far, something failed, redisplay the form
             ViewBag.Roles = _roleManager.Roles.Select(r => r.Name).ToList();
             return View(model);
         }
-        // ========== NEW ACTION: GET Edit ==========
+
         [HttpGet]
         public async Task<IActionResult> Edit(string id)
         {
+            // ... (Paste your existing Edit GET logic here) ...
             if (id == null) return NotFound();
-
             var user = await _userManager.FindByIdAsync(id);
             if (user == null) return NotFound();
-
             var model = new EditUserViewModel
             {
                 Id = user.Id,
@@ -89,34 +92,28 @@ namespace ContractMonthlyClaim.Controllers
                 LastName = user.LastName,
                 HourlyRate = user.HourlyRate
             };
-
             return View(model);
         }
 
-        // ========== NEW ACTION: POST Edit ==========
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(EditUserViewModel model)
         {
+            // ... (Paste your existing Edit POST logic here) ...
             if (ModelState.IsValid)
             {
                 var user = await _userManager.FindByIdAsync(model.Id);
                 if (user == null) return NotFound();
-
-                // Update properties
                 user.Email = model.Email;
-                user.UserName = model.Email; // Keep username consistent with email
+                user.UserName = model.Email;
                 user.FirstName = model.FirstName;
                 user.LastName = model.LastName;
                 user.HourlyRate = model.HourlyRate;
-
                 var result = await _userManager.UpdateAsync(user);
-
                 if (result.Succeeded)
                 {
                     return RedirectToAction("Index");
                 }
-
                 foreach (var error in result.Errors)
                 {
                     ModelState.AddModelError(string.Empty, error.Description);

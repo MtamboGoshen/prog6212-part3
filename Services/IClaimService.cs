@@ -14,5 +14,6 @@ namespace ContractMonthlyClaim.Services
         Task<Claim?> GetClaimById(int claimId);
         Task<bool> UpdateClaimStatus(int claimId, string newStatus);
         Task<bool> UpdateClaim(Claim updatedClaim);
+        Task<List<Claim>> GetApprovedClaims();
     }
 }

@@ -83,5 +83,11 @@ namespace ContractMonthlyClaim.Services
             await _context.SaveChangesAsync();
             return true;
         }
+        public async Task<List<Claim>> GetApprovedClaims()
+        {
+            return await _context.Claims
+                .Where(c => c.Status == "Approved")
+                .ToListAsync();
+        }
     }
 }

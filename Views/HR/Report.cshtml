@@ -1,0 +1,56 @@
+﻿@model List<ContractMonthlyClaim.Models.Claim>
+@{
+    ViewData["Title"] = "Payment Report";
+    decimal totalPayout = Model.Sum(c => c.Amount);
+}
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Approved Claims Report</h2>
+        <button onclick="window.print()" class="btn btn-secondary">
+            Print / Save as PDF
+        </button>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">Invoice Summary</h5>
+        </div>
+        <div class="card-body">
+            <p><strong>Date Generated:</strong> @DateTime.Now.ToLongDateString()</p>
+            <p><strong>Total Claims:</strong> @Model.Count</p>
+
+            <table class="table table-bordered mt-3">
+                <thead class="table-light">
+                    <tr>
+                        <th>Claim ID</th>
+                        <th>Lecturer</th>
+                        <th>Programme</th>
+                        <th>Hours</th>
+                        <th>Rate</th>
+                        <th class="text-end">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var claim in Model)
+                    {
+                        <tr>
+                            <td>#@claim.Id</td>
+                            <td>@claim.LecturerName</td>
+                            <td>@claim.Programme</td>
+                            <td>@claim.HoursWorked</td>
+                            <td>@claim.HourlyRate.ToString("C")</td>
+                            <td class="text-end">@claim.Amount.ToString("C")</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold table-secondary">
+                        <td colspan="5" class="text-end">Grand Total Payout:</td>
+                        <td class="text-end">@totalPayout.ToString("C")</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
