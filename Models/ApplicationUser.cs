@@ -1,11 +1,15 @@
-﻿// FILE: Models/ApplicationUser.cs
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ContractMonthlyClaim.Models
 {
     public class ApplicationUser : IdentityUser
     {
-        // You can add custom properties here later
-        // For example: public string? FirstName { get; set; }
+        // NEW PROPERTIES REQUIRED BY PART 3
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+
+        [Column(TypeName = "decimal(18, 2)")]
+        public decimal HourlyRate { get; set; }
     }
 }

@@ -25,6 +25,13 @@
                                 <a class="nav-link text-light" asp-controller="Home" asp-action="Index">All Claims</a>
                             </li>
 
+                            @if (User.IsInRole("HR"))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link text-light" asp-controller="HR" asp-action="Index">User Management</a>
+                                </li>
+                            }
+
                             @if (User.IsInRole("Manager") || User.IsInRole("Programme Coordinator"))
                             {
                                 <li class="nav-item">

@@ -1,5 +1,4 @@
-﻿// FILE: Data/IdentitySeed.cs
-using ContractMonthlyClaim.Models;
+﻿using ContractMonthlyClaim.Models;
 using Microsoft.AspNetCore.Identity;
 
 namespace ContractMonthlyClaim.Data
@@ -12,17 +11,21 @@ namespace ContractMonthlyClaim.Data
             var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
             // Seed Roles
+            await SeedRoleAsync(roleManager, "HR"); // <-- NEW HR ROLE
             await SeedRoleAsync(roleManager, "Manager");
-            await SeedRoleAsync(roleManager, "Programme Coordinator"); // <-- NEW ROLE
+            await SeedRoleAsync(roleManager, "Programme Coordinator");
             await SeedRoleAsync(roleManager, "Lecturer");
 
             // Seed Users
-            await SeedUserAsync(userManager, "manager@test.com", "Password123", "Manager");
-            await SeedUserAsync(userManager, "coordinator@test.com", "Password123", "Programme Coordinator"); // <-- NEW USER
-            await SeedUserAsync(userManager, "lecturer@test.com", "Password123", "Lecturer");
+            // NEW HR User
+            await SeedUserAsync(userManager, "hr@test.com", "Password123", "HR", "Admin", "User", 0);
+
+            // Updated test users with new properties
+            await SeedUserAsync(userManager, "manager@test.com", "Password123", "Manager", "Manager", "User", 0);
+            await SeedUserAsync(userManager, "coordinator@test.com", "Password123", "Programme Coordinator", "Coord", "User", 0);
+            await SeedUserAsync(userManager, "lecturer@test.com", "Password123", "Lecturer", "Lecturer", "User", 500); // Example rate
         }
 
-        // Helper methods (no changes needed below)
         private static async Task SeedRoleAsync(RoleManager<IdentityRole> roleManager, string roleName)
         {
             if (!await roleManager.RoleExistsAsync(roleName))
@@ -31,11 +34,21 @@ namespace ContractMonthlyClaim.Data
             }
         }
 
-        private static async Task SeedUserAsync(UserManager<ApplicationUser> userManager, string userName, string password, string role)
+        // MODIFIED: This method now accepts first name, last name, and hourly rate
+        private static async Task SeedUserAsync(UserManager<ApplicationUser> userManager, string userName, string password, string role, string firstName, string lastName, decimal hourlyRate)
         {
             if (await userManager.FindByNameAsync(userName) == null)
             {
-                var user = new ApplicationUser { UserName = userName, Email = userName, EmailConfirmed = true };
+                var user = new ApplicationUser
+                {
+                    UserName = userName,
+                    Email = userName,
+                    EmailConfirmed = true,
+                    FirstName = firstName,      // <-- NEW
+                    LastName = lastName,        // <-- NEW
+                    HourlyRate = hourlyRate     // <-- NEW
+                };
+
                 var result = await userManager.CreateAsync(user, password);
                 if (result.Succeeded)
                 {
