@@ -6,13 +6,14 @@ using ContractMonthlyClaimPrototype.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
 builder.Services.AddDbContext<ApplicationDBContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DBConnection"))
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DBConnection"))
 );
 
 builder.Services.AddScoped<IClaimService, ClaimService>();
