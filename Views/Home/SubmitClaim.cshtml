@@ -13,29 +13,37 @@
 
             <div class="mb-3">
                 <label asp-for="LecturerName" class="form-label"></label>
-                <input asp-for="LecturerName" class="form-control" />
-                <span asp-validation-for="LecturerName" class="text-danger"></span>
+                <input asp-for="LecturerName" class="form-control bg-light" readonly />
             </div>
+
             <div class="mb-3">
                 <label asp-for="Programme" class="form-label"></label>
                 <input asp-for="Programme" class="form-control" />
                 <span asp-validation-for="Programme" class="text-danger"></span>
             </div>
+
             <div class="mb-3">
                 <label asp-for="Month" class="form-label"></label>
                 <input asp-for="Month" class="form-control" placeholder="e.g., 2025-10" />
                 <span asp-validation-for="Month" class="text-danger"></span>
             </div>
+
             <div class="mb-3">
                 <label asp-for="HoursWorked" class="form-label"></label>
                 <input asp-for="HoursWorked" class="form-control" />
                 <span asp-validation-for="HoursWorked" class="text-danger"></span>
             </div>
+
             <div class="mb-3">
                 <label asp-for="HourlyRate" class="form-label"></label>
-                <input asp-for="HourlyRate" class="form-control" />
-                <span asp-validation-for="HourlyRate" class="text-danger"></span>
+                <input asp-for="HourlyRate" class="form-control bg-light" readonly />
             </div>
+
+            <div class="mb-3">
+                <label class="form-label">Calculated Amount</label>
+                <input id="calculatedAmount" class="form-control" type="text" readonly disabled />
+            </div>
+
             <div class="mb-3">
                 <label asp-for="Notes" class="form-label"></label>
                 <textarea asp-for="Notes" class="form-control" rows="3"></textarea>
@@ -45,8 +53,7 @@
             <div class="mb-3">
                 <label asp-for="Document" class="form-label">Supporting Document (PDF, DOCX, XLSX only, max 5MB)</label>
                 <input asp-for="Document" class="form-control" accept=".pdf,.docx,.xlsx" />
-
-                <span asp-validation-for="Document" class="text-danger"></span>
+                <span id="documentValidationMessage" class="text-danger"></span>
             </div>
 
             <div class="form-group mt-4">
@@ -61,4 +68,40 @@
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
+    <script src="~/lib/jquery/jquery.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            function calculateAmount() {
+                const hours = parseFloat($('#HoursWorked').val());
+                const rate = parseFloat($('#HourlyRate').val());
+
+                if (!isNaN(hours) && !isNaN(rate)) {
+                    const total = hours * rate;
+                    const formattedTotal = total.toLocaleString('en-ZA', {
+                        style: 'currency',
+                        currency: 'ZAR'
+                    });
+                    $('#calculatedAmount').val(formattedTotal);
+                } else {
+                    $('#calculatedAmount').val('');
+                }
+            }
+
+            // Trigger calculation on input in 'HoursWorked'
+            // (Rate is read-only, but we include it for initial load)
+            $('#HoursWorked, #HourlyRate').on('input change', calculateAmount);
+
+            // Run calculation once on load in case values are pre-filled
+            calculateAmount();
+
+            // Display document validation errors if any
+             var modelStateError = document.querySelector('[data-valmsg-for="Document"]');
+            if (modelStateError) {
+                var targetSpan = document.getElementById('documentValidationMessage');
+                if (targetSpan) {
+                    targetSpan.innerHTML = modelStateError.innerHTML;
+                }
+            }
+        });
+    </script>
 }

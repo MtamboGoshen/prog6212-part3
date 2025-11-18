@@ -3,6 +3,7 @@ using ContractMonthlyClaim.Models;
 using ContractMonthlyClaim.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity; // Required for UserManager
 using Microsoft.AspNetCore.Mvc;
 
 namespace ContractMonthlyClaim.Controllers
@@ -13,15 +14,22 @@ namespace ContractMonthlyClaim.Controllers
         private readonly ILogger<HomeController> _logger;
         private readonly IClaimService _claimService;
         private readonly IWebHostEnvironment _webHostEnvironment;
-        private readonly IEncryptionService _encryptionService; // Service for encryption
+        private readonly IEncryptionService _encryptionService;
+        private readonly UserManager<ApplicationUser> _userManager; // Added UserManager
 
-        // Updated constructor to inject the encryption service
-        public HomeController(ILogger<HomeController> logger, IClaimService claimService, IWebHostEnvironment webHostEnvironment, IEncryptionService encryptionService)
+        // Updated constructor to inject UserManager
+        public HomeController(
+            ILogger<HomeController> logger,
+            IClaimService claimService,
+            IWebHostEnvironment webHostEnvironment,
+            IEncryptionService encryptionService,
+            UserManager<ApplicationUser> userManager)
         {
             _logger = logger;
             _claimService = claimService;
             _webHostEnvironment = webHostEnvironment;
             _encryptionService = encryptionService;
+            _userManager = userManager;
         }
 
         public async Task<IActionResult> Index()
@@ -37,17 +45,49 @@ namespace ContractMonthlyClaim.Controllers
             return View(claims);
         }
 
+        // ========== MODIFIED: GET SubmitClaim (Auto-Fill) ==========
         [Authorize(Roles = "Lecturer")]
-        public IActionResult SubmitClaim()
+        public async Task<IActionResult> SubmitClaim()
         {
-            return View(new SubmitClaimViewModel());
+            // Get current user
+            var username = User.Identity?.Name;
+            if (username == null) return Unauthorized();
+
+            var user = await _userManager.FindByNameAsync(username);
+
+            // Pre-fill the model with data from the User Profile (set by HR)
+            var model = new SubmitClaimViewModel
+            {
+                LecturerName = $"{user?.FirstName} {user?.LastName}",
+                HourlyRate = user?.HourlyRate ?? 0,
+                Month = DateTime.Now.ToString("yyyy-MM")
+            };
+
+            return View(model);
         }
 
+        // ========== MODIFIED: POST SubmitClaim (Automation & Validation) ==========
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Lecturer")]
         public async Task<IActionResult> SubmitClaim(SubmitClaimViewModel viewModel)
         {
+            // 1. Security: Re-fetch user details to ensure the Rate is correct.
+            // This prevents a user from hacking the read-only HTML field.
+            var username = User.Identity?.Name;
+            var user = await _userManager.FindByNameAsync(username!);
+
+            // Force the values from the database
+            viewModel.LecturerName = $"{user?.FirstName} {user?.LastName}";
+            viewModel.HourlyRate = user?.HourlyRate ?? 0;
+
+            // 2. Validation: Check the 180-hour limit
+            if (viewModel.HoursWorked > 180)
+            {
+                ModelState.AddModelError("HoursWorked", "Hours worked cannot exceed 180 hours per month.");
+            }
+
+            // 3. File Validation Logic
             if (viewModel.Document != null)
             {
                 var maxFileSizeInBytes = 5 * 1024 * 1024; // 5 MB
@@ -74,15 +114,13 @@ namespace ContractMonthlyClaim.Controllers
                     HoursWorked = viewModel.HoursWorked,
                     HourlyRate = viewModel.HourlyRate,
                     Notes = viewModel.Notes,
-                    Amount = viewModel.HoursWorked * viewModel.HourlyRate
+                    Amount = viewModel.HoursWorked * viewModel.HourlyRate // Auto-calculated total
                 };
 
                 if (viewModel.Document != null && viewModel.Document.Length > 0)
                 {
-                    // 1. Encrypt the file's content
                     var encryptedData = await _encryptionService.EncryptFileAsync(viewModel.Document);
 
-                    // 2. Save the encrypted data to a file
                     string uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads");
                     Directory.CreateDirectory(uploadsFolder);
                     string uniqueFileName = Guid.NewGuid().ToString() + Path.GetExtension(viewModel.Document.FileName);
@@ -99,38 +137,26 @@ namespace ContractMonthlyClaim.Controllers
             return View(viewModel);
         }
 
-        // NEW ACTION: To decrypt and view documents securely
         public async Task<IActionResult> ViewDocument(string filename)
         {
-            if (string.IsNullOrEmpty(filename))
-            {
-                return NotFound();
-            }
+            if (string.IsNullOrEmpty(filename)) return NotFound();
 
             string filePath = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", filename);
-            if (!System.IO.File.Exists(filePath))
-            {
-                return View("NotFound");
-            }
+            if (!System.IO.File.Exists(filePath)) return View("NotFound");
 
-            // 1. Read the encrypted file from disk
             var encryptedData = await System.IO.File.ReadAllBytesAsync(filePath);
-
-            // 2. Decrypt the data
             var decryptedData = await _encryptionService.DecryptFileAsync(encryptedData);
 
-            // 3. Determine the correct content type for the browser
             var contentType = "application/octet-stream";
             var fileExtension = Path.GetExtension(filename).ToLowerInvariant();
             if (fileExtension == ".pdf") contentType = "application/pdf";
             else if (fileExtension == ".docx") contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
             else if (fileExtension == ".xlsx") contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-            // 4. Return the decrypted file to the user
-            return File(decryptedData, contentType, Path.GetFileName(filename)); // Use a safe filename
+            return File(decryptedData, contentType, Path.GetFileName(filename));
         }
 
-        // ... (The rest of your controller methods are unchanged) ...
+        // ... (Approve, Reject, Delete, Details, Edit actions remain unchanged) ...
 
         [HttpPost]
         [Authorize(Roles = "Manager, Programme Coordinator")]
@@ -159,10 +185,7 @@ namespace ContractMonthlyClaim.Controllers
         public async Task<IActionResult> Details(int id)
         {
             var claim = await _claimService.GetClaimById(id);
-            if (claim == null)
-            {
-                return View("NotFound");
-            }
+            if (claim == null) return View("NotFound");
             return View(claim);
         }
 
@@ -170,10 +193,7 @@ namespace ContractMonthlyClaim.Controllers
         public async Task<IActionResult> Edit(int id)
         {
             var claim = await _claimService.GetClaimById(id);
-            if (claim == null)
-            {
-                return View("NotFound");
-            }
+            if (claim == null) return View("NotFound");
             return View(claim);
         }
 
