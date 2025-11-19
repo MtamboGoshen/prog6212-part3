@@ -89,5 +89,12 @@ namespace ContractMonthlyClaim.Services
                 .Where(c => c.Status == "Approved")
                 .ToListAsync();
         }
+        public async Task<List<Claim>> GetClaimsByLecturerAsync(string lecturerUsername)
+        {
+            return await _context.Claims
+                .Where(c => c.LecturerName == lecturerUsername)
+                .OrderByDescending(c => c.Id)
+                .ToListAsync();
+        }
     }
 }
